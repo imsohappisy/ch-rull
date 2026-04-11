@@ -4,10 +4,8 @@
 
 ## 📂 폴더 구조
 
-- **Source_Code/**: 원본 소스 코드 (bot.js, bot_v2.js)
 - **Optimized_Code/**: 배포용 최적화 및 난독화 코드
 - **Data_Files/**: 게임 구동에 필요한 JSON 데이터 (diesyl.json 등)
-- **Documents/**: 직업 능력 설명 및 기획 문서
 
 ## 🚀 시작하기
 
