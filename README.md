@@ -11,7 +11,7 @@
 
 1. `Data_Files/diesyl.json` 파일을 스마트폰의 `/sdcard/msgbotr/` 폴더에 복사합니다.
 2. `Optimized_Code/bot_v2_obfuscated.js` 의 전체 내용을 복사하여 메신저봇 R의 스크립트로 등록합니다.
-3. `/도움말` 명령어를 통해 게임 방법을 확인하세요.
+3. `%도움말` 명령어를 통해 게임 방법을 확인하세요.
 
 ## ⚖️ 라이선스
 
