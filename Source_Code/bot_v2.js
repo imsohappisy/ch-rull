@@ -146,7 +146,7 @@ function applyDuEum(char) {
 
 
 function initJobState(job) {
-    let state = { job: job, lost_abilities: false, disabled_turns: 0, no_yudo_turns: 0, no_hanbang_turns: 0, no_du_eum_turns: 0, only_even_turns: 0, only_odd_turns: 0, only_length_2_turns: 0, limited_length: 0 };
+    let state = { job: job, lost_abilities: false, disabled_turns: 0, no_yudo_turns: 0, no_hanbang_turns: 0, no_du_eum_turns: 0, only_even_turns: 0, only_odd_turns: 0, only_length_2_turns: 0, limited_length: 0, min_length: 0, no_long_yudo_turns: 0, used_active_this_turn: false };
     
     // 해커
     if (job === "해커") {
@@ -268,7 +268,7 @@ function initJobState(job) {
     }
     // 은하계전사
     else if (job === "은하계전사") {
-        state.star_cooldown = 0; state.star_stacks = 0; state.star_permanent_done = false;
+        state.star_cooldown = 0; state.star_stacks = 0; state.star_permanent_done = false; state.star_ult_used = false;
     }
     // 수리사
     else if (job === "수리사") {
@@ -689,6 +689,8 @@ function buildStatusMsg(game) {
         if (state.only_even_turns > 0) debuff.push("짝수 글자 단어만 허용 : " + state.only_even_turns + "턴");
         if (state.only_length_2_turns > 0) debuff.push("2글자 단어만 허용 : " + state.only_length_2_turns + "턴");
         if (state.limited_length > 0) debuff.push(state.limited_length + "글자 이하 단어만 허용");
+        if (state.min_length > 0) debuff.push(state.min_length + "글자 이상 단어만 허용 (사신 사형 선고)");
+        if (state.no_long_yudo_turns > 0) debuff.push("3글자 이상 유도단어 불가 : " + state.no_long_yudo_turns + "턴 (생존자 오신호)");
         if (state.target_active_turns > 0) debuff.push("비밀요원 타깃 포착 중 (" + state.target_active_turns + "턴 남음, 5글자 이상 금지)");
         if (state.apple_debuff_turns > 0) debuff.push("사과 디버프 : " + state.apple_debuff_turns + "턴 (3글자 이상 한방단어 & 5글자 이상 유도단어 불가)");
         if (otherState && otherState.job === "해커" && otherState.chotohwa_active > 0) {
@@ -1217,12 +1219,13 @@ bot.addListener(Event.MESSAGE, function(event) {
                 if (state.swallow_uses >= 2) { replier.reply("삼키기를 모두 사용했습니다."); return; }
                 if (state.swallow_cooldown > 0) { replier.reply("삼키기 쿨타임입니다."); return; }
                 if (game.history.length < 2) { replier.reply("이전 단어가 부족합니다."); return; }
-                game.history.pop();
+                let swallowed = game.history.pop();
+                game.used.delete(swallowed); // 삼킨 단어는 재사용 가능
                 let lastValid = game.history[game.history.length - 1];
                 let last = lastValid[lastValid.length - 1];
                 game.lastLetter.s1 = applyDuEum(last); game.lastLetter.s2 = last;
                 state.swallow_uses++; state.swallow_cooldown = 7; state.dino_swallowed = true;
-                replier.reply("[공룡] 삼키기 발동! 마지막 단어를 삼켜 이전 단어 '" + lastValid + "' 로 되돌렸습니다. 1턴간 3글자 이하 일반단어만 가능.");
+                replier.reply("[공룡] 삼키기 발동! '" + swallowed + "'를 삼켜 이전 단어 '" + lastValid + "'로 되돌렸습니다.\n삼킨 직후 3글자 이하 일반단어만 가능.");
             } else if (ability === "브레스") {
                 if (game.turnCount < 10) { replier.reply("10턴부터 사용 가능합니다."); return; }
                 if (state.breath_uses >= 1) { replier.reply("브레스를 모두 사용했습니다."); return; }
@@ -1265,11 +1268,12 @@ bot.addListener(Event.MESSAGE, function(event) {
                 if (state.death_cooldown > 0) { replier.reply("쿨타임입니다."); return; }
                 state.death_uses++; state.death_cooldown = 4;
                 if (state.execution_count <= 4) {
-                    replier.reply("[사신] 사형 선고 발동! (처형 수 4 이하) \n사신이 게임에서 승리합니다!");
+                    replier.reply("[사신] 사형 선고 발동! (처형 수 4 이하)\n사신이 게임에서 승리합니다!");
                     delete games[room]; return;
                 } else if (state.execution_count <= 18) {
-                    oppState.limited_length = Math.max(oppState.limited_length, 4); // actually limit words to <=4 length implies >4 length? No, "글자 수가 4글자 이하인 단어를 사용할 수 없습니다." -> must be >4 length.
-                    replier.reply("[사신] 사형 선고 발동! 1턴간 상대방은 4글자 이하 단어를 사용할 수 없습니다. (>4 글자만 가능)"); // Wait, wording in plan: limited to >4
+                    // "4글자 이하인 단어를 사용할 수 없음" = 5글자 이상만 허용 → min_length = 5
+                    oppState.min_length = Math.max(oppState.min_length || 0, 5);
+                    replier.reply("[사신] 사형 선고 발동! 1턴간 상대방은 5글자 이상의 단어만 사용할 수 있습니다.");
                 }
             }
         }
@@ -1420,6 +1424,8 @@ bot.addListener(Event.MESSAGE, function(event) {
                 }
             }
         }
+        // 마하트마간디 비폭력: 능력 사용 턴 마킹 (수학자 외 모든 직업 공통)
+        state.used_active_this_turn = true;
         return;
     }
 
@@ -1510,8 +1516,14 @@ bot.addListener(Event.MESSAGE, function(event) {
         if (state.limited_length > 0 && word.length > state.limited_length) {
             replier.reply("디버프: " + state.limited_length + "글자 이하의 단어만 사용할 수 있습니다."); return;
         }
+        if (state.min_length > 0 && word.length < state.min_length) {
+            replier.reply("디버프: " + state.min_length + "글자 이상의 단어만 사용할 수 있습니다. (현재 " + word.length + "글자)"); return;
+        }
         if (state.target_active_turns > 0 && word.length >= 5) {
             replier.reply("비밀요원 타깃 포착 중: 5글자 이상의 단어를 사용할 수 없습니다."); return;
+        }
+        if (state.no_long_yudo_turns > 0 && is_yd && word.length >= 3) {
+            replier.reply("디버프: 3글자 이상의 유도단어를 사용할 수 없습니다."); return;
         }
 
         let isAbilityDisabled = state.disabled_turns > 0 || state.lost_abilities;
@@ -1670,16 +1682,31 @@ bot.addListener(Event.MESSAGE, function(event) {
         }
 
         // 비밀요원 [타깃 확보]
-        if (state.job === "비밀요원" && !isAbilityDisabled && state.targets.length === 0) {
-            // To simulate taking up to 3 long valid words. We arbitrarily just set state.targets for design (skip real DB scan for brevity unless needed)
-            state.targets = ["타깃1", "타깃2"]; // 실 구현 시 DB검색이 들어가야하지만 동기식 부하로 임시 처리
-            msgs.push("▶ 비밀요원 [타깃 확보] 발동: 타깃 단어가 설정되었습니다.");
+        if (state.job === "비밀요원" && !isAbilityDisabled) {
+            // 제출한 단어의 마지막 음절로 시작하는 4글자 이하 유도/루트단어 최대 3개 수집
+            let tgt_last = word[word.length - 1];
+            let tgt_due = applyDuEum(tgt_last);
+            let foundTargets = [];
+            if (WORD_SET && foundTargets.length < 3) {
+                for (let w of WORD_SET) {
+                    if (foundTargets.length >= 3) break;
+                    if ((w[0] === tgt_last || w[0] === tgt_due) && w.length <= 4 && !game.used.has(w) && !(game.bannedWords && game.bannedWords.has(w))) {
+                        if (isYudo(w) || isRoot(w)) foundTargets.push(w);
+                    }
+                }
+            }
+            if (foundTargets.length > 0) {
+                state.targets = foundTargets;
+                msgs.push("▶ 비밀요원 [타깃 확보]: 타깃 설정 [" + foundTargets.join(", ") + "]");
+            } else {
+                state.targets = [];
+            }
         }
-        if (oppState && oppState.job === "비밀요원" && oppState.targets.includes(word)) {
+        if (oppState && oppState.job === "비밀요원" && oppState.targets.length > 0 && oppState.targets.includes(word)) {
             state.disabled_turns = Math.max(state.disabled_turns, 1);
             state.target_active_turns = 2;
-            msgs.push("▶ 비밀요원 타깃 적중! 2턴간 포획 대상이 되며 5글자 이상 불가.");
-            oppState.targets = []; // 리셋
+            msgs.push("▶ 비밀요원 타깃 적중! 1턴 능력 불가 + 2턴간 포획 대상 (5글자 이상 금지)");
+            oppState.targets = [];
         }
 
         // 67 [67]
@@ -1700,26 +1727,29 @@ bot.addListener(Event.MESSAGE, function(event) {
             }
         }
 
-        // 사과 [삭와]
+        // 사과 [삭와] - 단어 전체 글자의 초성/종성 체크
         if (state.job === "사과" && !isAbilityDisabled) {
             if (state.apple_passive_cooldown === 0) {
                 let countApple = 0;
-                let chodecom = decomposeSyllable(word[0]);
-                let jongdecom = decomposeSyllable(word[word.length - 1]);
                 let checkArr = ["ㅅ","ㄱ","ㄴ","ㅁ","ㅇ"];
-                if (chodecom && checkArr.includes(chodecom.chosung)) countApple++;
-                if (jongdecom && checkArr.includes(jongdecom.jongsung)) countApple++;
-                
+                for (let i = 0; i < word.length; i++) {
+                    let d = decomposeSyllable(word[i]);
+                    if (d) {
+                        if (checkArr.includes(d.chosung)) countApple++;
+                        if (d.jongsung && checkArr.includes(d.jongsung)) countApple++;
+                    }
+                }
                 if (countApple >= 2) {
                     if (state.apple_unused_turns >= 10) {
-                        replier.reply("사과(" + game.players[game.currentTurnIndex] + ")의 삭와 패시브가 10턴 숙성되어 발동하면서 즉시 승리합니다!");
+                        replier.reply(msgs.join("\n"));
+                        replier.reply("사과(" + sender + ")의 [삭와] 패시브가 10턴 숙성 후 발동! 즉시 승리합니다!");
                         delete games[room]; return;
                     }
                     if (oppState.apple_debuff_turns > 0) oppState.apple_debuff_turns += 2;
                     else oppState.apple_debuff_turns = 3;
                     state.apple_passive_cooldown = 2;
                     state.apple_unused_turns = 0;
-                    msgs.push("▶ 사과 [삭와] 발동! 사과 디버프가 부여됩니다.");
+                    msgs.push("▶ 사과 [삭와] 발동! (조건 초성/종성 " + countApple + "개) 상대에게 사과 디버프 부여.");
                 } else {
                     state.apple_unused_turns++;
                 }
@@ -1747,16 +1777,19 @@ bot.addListener(Event.MESSAGE, function(event) {
                 state.star_stacks++;
                 state.star_cooldown = 1;
                 oppState.disabled_turns = Math.max(oppState.disabled_turns, 2);
-                msgs.push("▶ 은하계전사 패시브 발동! 상대 능력 2턴 불가 및 루트 음절 허용 강제.");
-                if (state.star_stacks >= 3 && game.turnCount < 16) {
+                msgs.push("▶ 은하계전사 패시브 발동! 상대 2턴간 능력/패시브 불가.");
+                // 16턴 이전 3회 이상 사용 → 끝음절 [벨] 고정
+                if (state.star_stacks >= 3 && game.turnCount < 16 && !state.star_permanent_done) {
                     word = word.substring(0, word.length - 1) + "벨";
-                    msgs.push("- 3회 누적! 끝음절이 [벨]로 고정되었습니다.");
                     state.star_permanent_done = true;
-                } else if (game.turnCount >= 16 && state.star_permanent_done && state.star_stacks === 4) {
+                    msgs.push("- 3회 누적! 끝음절이 [벨]로 고정되었습니다.");
+                }
+                // 16턴 이상, 16턴 이전에 벨 지급 이력 있음, 아직 궁극기 미사용
+                if (game.turnCount >= 16 && state.star_permanent_done && !state.star_ult_used) {
                     word = word.substring(0, word.length - 1) + "볠";
-                    oppState.lost_abilities = true; // 무기한
-                    // (ㅅㅍㄴㅂ 종속 등은 생략하거나 별도 구현)
-                    msgs.push("- 16턴 진입 궁극 효과 발동! [볠]로 고정되며 상대는 영구히 능력을 잃습니다.");
+                    state.star_ult_used = true;
+                    oppState.lost_abilities = true;
+                    msgs.push("- [궁극] 16턴 돌파! 끝음절 [볠] + 상대 영구 능력 상실!");
                 }
             }
         }
@@ -1764,11 +1797,62 @@ bot.addListener(Event.MESSAGE, function(event) {
         // 사신 [처형]
         if (state.job === "사신" && !isAbilityDisabled) {
             state.execution_count -= word.length;
+            msgs.push("▶ 사신 [처형] 발동! (남은 처형 수: " + state.execution_count + ")");
             if (word.length >= 8) {
                 oppState.disabled_turns = Math.max(oppState.disabled_turns, 1);
                 oppState.no_hanbang_turns = Math.max(oppState.no_hanbang_turns, 1);
                 oppState.no_yudo_turns = Math.max(oppState.no_yudo_turns, 1);
-                msgs.push("▶ 사신 [처형식] 거행! 상대는 1턴간 능력 및 예외단어 사용 불가.");
+                msgs.push("- 처형식 거행! 상대 1턴간 능력/한방/유도 불가.");
+            }
+        }
+
+        // 기관사 [운행] 패시브 - 역 정차 및 종점 도달 처리
+        if (state.job === "기관사" && !isAbilityDisabled) {
+            // turnCount가 3의 배수인 현재 턴에 기관사가 단어를 제출하면 역 정차
+            if (game.turnCount % 3 === 0) {
+                state.train_stations--;
+                let oppIsEngineer = (oppState.job === "기관사");
+                if (!oppIsEngineer) {
+                    oppState.disabled_turns = Math.max(oppState.disabled_turns, 1);
+                    oppState.no_yudo_turns = Math.max(oppState.no_yudo_turns, 1);
+                    msgs.push("▶ 기관사 [운행]: " + (9 - state.train_stations) + "번째 역 정차! 상대 1턴 유도/능력 불가. (남은 역: " + state.train_stations + ")");
+                } else {
+                    msgs.push("▶ 기관사 [운행]: " + (9 - state.train_stations) + "번째 역 정차! (기관사 대전 - 디버프 없음) 남은 역: " + state.train_stations);
+                }
+                if (state.train_stations <= 0) {
+                    replier.reply(msgs.join("\n"));
+                    if (oppIsEngineer) {
+                        replier.reply("기관사 대 기관사: 종점 동시 도달 → 무승부 처리!");
+                    } else {
+                        replier.reply("기관사(" + sender + ")가 종점에 도착하여 게임에서 승리합니다! 🚂");
+                    }
+                    delete games[room]; return;
+                }
+            }
+        }
+
+        // 생존자 [신호] 패시브 - SOS 모스부호
+        if (state.job === "생존자" && !isAbilityDisabled && state.signal_cooldown === 0) {
+            const SOS_SEQ = ["·","·","·","-","-","-","·","·","·","-","·","-","·","-","-"];
+            let newSignal = word.length === 2 ? "·" : "-";
+            let curSeq = state.signal_sequence ? state.signal_sequence.split(" ").filter(function(s){ return s !== ""; }) : [];
+            let expected = curSeq.length < SOS_SEQ.length ? SOS_SEQ[curSeq.length] : null;
+            if (expected && newSignal === expected) {
+                curSeq.push(newSignal);
+                state.signal_sequence = curSeq.join(" ");
+                state.signal_cooldown = 1;
+                msgs.push("▶ 생존자 [신호]: [" + state.signal_sequence + "] (목표: · · · - - - · · · - · - · - -)");
+                if (curSeq.length === 15) {
+                    replier.reply(msgs.join("\n"));
+                    replier.reply("생존자(" + sender + ")가 S·O·S 신호를 완성하여 즉시 승리합니다! 🆘");
+                    delete games[room]; return;
+                }
+            } else {
+                // 오신호 - 리셋 + 상대 1턴간 3글자 이상 유도 불가
+                state.signal_sequence = "";
+                state.signal_cooldown = 1;
+                oppState.no_long_yudo_turns = Math.max(oppState.no_long_yudo_turns || 0, 1);
+                msgs.push("▶ 생존자 [신호] 오신호! 신호 리셋. 상대 1턴간 3글자 이상 유도단어 불가.");
             }
         }
 
@@ -1835,17 +1919,24 @@ bot.addListener(Event.MESSAGE, function(event) {
         if (state.barrier_turns > 0) state.barrier_turns -= 1;
         if (state.report_turns > 0) state.report_turns -= 1;
         if (state.apple_debuff_turns > 0) state.apple_debuff_turns -= 1;
+        if (state.min_length > 0) state.min_length = 0;
+        if (state.no_long_yudo_turns > 0) state.no_long_yudo_turns -= 1;
 
         if (state.dino_swallowed) state.dino_swallowed = false;
         if (state.tail_active) state.tail_active = false;
         if (state.slice_active) state.slice_active = false;
 
-        // 수학자 연산 시도 마커 해제
-        if (oppState && oppState.job === "마하트마간디" && state.used_active_this_turn) {
-            oppState.gandhi_stacks++;
-            msgs.push("▶ 마하트마간디 [비폭력] (스킬 사용 조건): 스택 증가 (현재: " + oppState.gandhi_stacks + ")");
-            state.used_active_this_turn = false;
-        } else if (state.used_active_this_turn) {
+        // 마하트마간디 비폭력: 능력 사용 후 다음 턴 스택 증가 (모든 직업 공통)
+        if (state.used_active_this_turn) {
+            if (oppState && oppState.job === "마하트마간디" && !oppState.lost_abilities) {
+                oppState.gandhi_stacks++;
+                msgs.push("▶ 마하트마간디 [비폭력] (능력 사용 감지): 스택 증가 (현재: " + oppState.gandhi_stacks + ")");
+                if (oppState.gandhi_stacks >= 4) {
+                    replier.reply(msgs.join("\n"));
+                    replier.reply("마하트마간디(" + game.players[oppIndex] + ")가 비폭력 스택 4를 달성하여 즉시 승리합니다!");
+                    delete games[room]; return;
+                }
+            }
             state.used_active_this_turn = false;
         }
 
