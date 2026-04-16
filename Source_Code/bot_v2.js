@@ -697,7 +697,53 @@ function buildStatusMsg(game) {
             debuff.push("초토화 위협 : 유도단어 또는 4글자 이상 사용 시 능력 영구 상실");
         }
 
+        // [ 기타 ] - 직업별 수치 트래커
+        if (state.job === "투자자") {
+            etc.push("현재 주가 : " + state.investor_stock + " (목표: " + (game ? game.turnCount : "?") + " 이하)");
+        }
+        if (state.job === "수집가") {
+            etc.push("보유 음절 : [" + (state.collected_syllables.length > 0 ? state.collected_syllables.join(", ") : "없음") + "]");
+            if (game && game.customWords && game.customWords.size > 0) {
+                etc.push("제작 단어 : [" + Array.from(game.customWords).join(", ") + "]");
+            }
+        }
+        if (state.job === "감시자") {
+            etc.push("현재 감시 수 : " + state.watch_count + " / 30");
+        }
+        if (state.job === "뜀틀선수") {
+            etc.push("뜀틀 사용 : " + state.vault_uses + " / " + state.vault_max + "회");
+        }
+        if (state.job === "기관사") {
+            etc.push("남은 역 수 : " + state.train_stations + " / 8");
+        }
+        if (state.job === "67") {
+            etc.push("상대 유도 불가 누적 : " + (otherState ? otherState.no_yudo_turns : 0) + " / 67");
+        }
+        if (state.job === "사과") {
+            etc.push("삭와 미발동 턴 : " + state.apple_unused_turns + " / 10턴 (10턴 미발동 시 승리)");
+        }
+        if (state.job === "마하트마간디") {
+            etc.push("비폭력 스택 : " + state.gandhi_stacks + " / 4");
+        }
+        if (state.job === "은하계전사") {
+            etc.push("별/달 스택 : " + state.star_stacks + "회" + (state.star_permanent_done ? " | [벨] 고정 완료" : "") + (state.star_ult_used ? " | [볠] 궁극 사용" : ""));
+        }
+        if (state.job === "사신") {
+            etc.push("처형 수 : " + state.execution_count + " (4 이하 시 사형 선고로 즉시 승리)");
+        }
+        if (state.job === "수학자") {
+            etc.push("수식 결과 : " + state.math_result + " (20 도달 시 계산 능력으로 승리)");
+        }
+        if (state.job === "생존자") {
+            let sigDisp = state.signal_sequence && state.signal_sequence.length > 0 ? state.signal_sequence : "없음";
+            etc.push("SOS 신호 진행 : [" + sigDisp + "] (목표: · · · - - - · · · - · - · - -)");
+        }
+        if (state.job === "비밀요원") {
+            etc.push("현재 타깃 : [" + (state.targets && state.targets.length > 0 ? state.targets.join(", ") : "없음") + "]");
+        }
+
         let abilityBlock = abilities.join("\n\n\n");
+
         let buffBlock = buff.length > 0 ? buff.join("\n") : "";
         let debuffBlock = debuff.length > 0 ? debuff.join("\n") : "";
 

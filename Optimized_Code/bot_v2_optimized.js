@@ -163,6 +163,19 @@ const JOB_INFO={"해커":"[ 채린룰 해커 직업 정보 ]\n\n< 조작 > - 쿨
 "수리 후 두음법칙을 사용할 수 있지만, 유도단어는 사용할 수 없습니다.\n"+
 "[ㅏㅑㅓㅕㅣ] <-> [ㅜㅠㅗㅛㅡ]");}
 if(state.disabled_turns>0)debuff.push("능력/패시브 상실 : "+state.disabled_turns+"턴");if(state.lost_abilities)debuff.push("능력 영구 상실");if(state.no_yudo_turns>0)debuff.push("유도단어 불가 : "+state.no_yudo_turns+"턴");if(state.no_hanbang_turns>0)debuff.push("한방단어 불가 : "+state.no_hanbang_turns+"턴");if(state.no_du_eum_turns>0)debuff.push("두음법칙 불가 : "+state.no_du_eum_turns+"턴");if(state.only_even_turns>0)debuff.push("짝수 글자 단어만 허용 : "+state.only_even_turns+"턴");if(state.only_length_2_turns>0)debuff.push("2글자 단어만 허용 : "+state.only_length_2_turns+"턴");if(state.limited_length>0)debuff.push(state.limited_length+"글자 이하 단어만 허용");if(state.min_length>0)debuff.push(state.min_length+"글자 이상 단어만 허용 (사신 사형 선고)");if(state.no_long_yudo_turns>0)debuff.push("3글자 이상 유도단어 불가 : "+state.no_long_yudo_turns+"턴 (생존자 오신호)");if(state.target_active_turns>0)debuff.push("비밀요원 타깃 포착 중 ("+state.target_active_turns+"턴 남음, 5글자 이상 금지)");if(state.apple_debuff_turns>0)debuff.push("사과 디버프 : "+state.apple_debuff_turns+"턴 (3글자 이상 한방단어 & 5글자 이상 유도단어 불가)");if(otherState&&otherState.job==="해커"&&otherState.chotohwa_active>0){debuff.push("초토화 위협 : 유도단어 또는 4글자 이상 사용 시 능력 영구 상실");}
+if(state.job==="투자자"){etc.push("현재 주가 : "+state.investor_stock+" (목표: "+(game?game.turnCount:"?")+" 이하)");}
+if(state.job==="수집가"){etc.push("보유 음절 : ["+(state.collected_syllables.length>0?state.collected_syllables.join(", "):"없음")+"]");if(game&&game.customWords&&game.customWords.size>0){etc.push("제작 단어 : ["+Array.from(game.customWords).join(", ")+"]");}}
+if(state.job==="감시자"){etc.push("현재 감시 수 : "+state.watch_count+" / 30");}
+if(state.job==="뜀틀선수"){etc.push("뜀틀 사용 : "+state.vault_uses+" / "+state.vault_max+"회");}
+if(state.job==="기관사"){etc.push("남은 역 수 : "+state.train_stations+" / 8");}
+if(state.job==="67"){etc.push("상대 유도 불가 누적 : "+(otherState?otherState.no_yudo_turns:0)+" / 67");}
+if(state.job==="사과"){etc.push("삭와 미발동 턴 : "+state.apple_unused_turns+" / 10턴 (10턴 미발동 시 승리)");}
+if(state.job==="마하트마간디"){etc.push("비폭력 스택 : "+state.gandhi_stacks+" / 4");}
+if(state.job==="은하계전사"){etc.push("별/달 스택 : "+state.star_stacks+"회"+(state.star_permanent_done?" | [벨] 고정 완료":"")+(state.star_ult_used?" | [볠] 궁극 사용":""));}
+if(state.job==="사신"){etc.push("처형 수 : "+state.execution_count+" (4 이하 시 사형 선고로 즉시 승리)");}
+if(state.job==="수학자"){etc.push("수식 결과 : "+state.math_result+" (20 도달 시 계산 능력으로 승리)");}
+if(state.job==="생존자"){let sigDisp=state.signal_sequence&&state.signal_sequence.length>0?state.signal_sequence:"없음";etc.push("SOS 신호 진행 : ["+sigDisp+"] (목표: · · · - - - · · · - · - · - -)");}
+if(state.job==="비밀요원"){etc.push("현재 타깃 : ["+(state.targets&&state.targets.length>0?state.targets.join(", "):"없음")+"]");}
 let abilityBlock=abilities.join("\n\n\n");let buffBlock=buff.length>0?buff.join("\n"):"";let debuffBlock=debuff.length>0?debuff.join("\n"):"";return title+"\n"+
 abilityBlock+"\n\n\n"+
 "[ 버프 ]\n"+buffBlock+"\n\n"+
