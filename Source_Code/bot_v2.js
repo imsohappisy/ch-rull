@@ -1030,39 +1030,31 @@ bot.addListener(Event.MESSAGE, function(event) {
         return;
     }
 
-    // --- 밴 등록 (1밴 [직업명]) ---
-    if (msg.startsWith(PREFIX + "밴 ") && game && game.phase === "job_selection" && game.banPhase) {
+    // --- 밴픽 (1밴 직업1 직업2 ... 최대 6개, 한 번에 처리) ---
+    if ((msg.startsWith(PREFIX + "밴 ") || msg === PREFIX + "밴") && game && game.phase === "job_selection" && game.banPhase) {
         if (sender !== game.firstPicker) { replier.reply("[밴픽] 밴픽 권한은 먼저 직업을 선택한 분에게 있습니다."); return; }
-        let banJob = msg.slice((PREFIX + "밴 ").length).trim();
-        if (!ALL_JOBS.includes(banJob)) { replier.reply("존재하지 않는 직업입니다: " + banJob); return; }
-        if (banJob === game.playerStates[sender].job) { replier.reply("[밴픽] 자신의 직업은 밴할 수 없습니다."); return; }
-        if (game.bannedJobs.includes(banJob)) { replier.reply("[밴픽] 이미 밴된 직업입니다: " + banJob); return; }
-        if (game.bannedJobs.length >= 6) { replier.reply("[밴픽] 최대 6개까지만 밴할 수 있습니다. 1밴확정으로 완료하세요."); return; }
-        game.bannedJobs.push(banJob);
-        let remaining = 6 - game.bannedJobs.length;
-        replier.reply("[밴픽] " + banJob + " 밴 완료! (" + game.bannedJobs.length + "/6)\n" +
-            "밴 목록: [" + game.bannedJobs.join(", ") + "]\n" +
-            (remaining > 0 ? "추가로 " + remaining + "개 더 밴하거나, 1밴확정으로 완료하세요." : "최대 밴 수 도달! 1밴확정으로 완료하세요."));
-        if (game.bannedJobs.length >= 6) {
-            game.banPhase = false;
-            let otherPlayer = game.players.find(p => p !== sender);
-            replier.reply("[밴픽] 밴 완료! " + otherPlayer + "님은 이제 직업을 선택하세요.\n" +
-                "밴된 직업: [" + game.bannedJobs.join(", ") + "]\n" +
-                "선택 가능 직업: [" + ALL_JOBS.filter(j => !game.bannedJobs.includes(j)).join(", ") + "]");
-        }
-        return;
-    }
 
-    // --- 밴 확정 (1밴확정) ---
-    if ((msg === PREFIX + "밴확정" || msg === PREFIX + "밴완료") && game && game.phase === "job_selection" && game.banPhase) {
-        if (sender !== game.firstPicker) { replier.reply("[밴픽] 밴픽 권한은 먼저 직업을 선택한 분에게 있습니다."); return; }
+        let banList = msg.slice(PREFIX.length + 1).trim().split(/\s+/).filter(j => j.length > 0);
+        let myJob = game.playerStates[sender].job;
+        let errors = [];
+        let added = [];
+
+        for (let banJob of banList) {
+            if (added.length >= 6) { errors.push("최대 6개까지만 밴 가능 (이후 무시됨)"); break; }
+            if (!ALL_JOBS.includes(banJob)) { errors.push("없는 직업: " + banJob); continue; }
+            if (banJob === myJob) { errors.push("자신의 직업은 밴 불가: " + banJob); continue; }
+            if (added.includes(banJob)) { errors.push("중복: " + banJob); continue; }
+            added.push(banJob);
+        }
+
+        game.bannedJobs = added;
         game.banPhase = false;
         let otherPlayer = game.players.find(p => p !== sender);
-        let bannedStr = game.bannedJobs.length > 0 ? "[" + game.bannedJobs.join(", ") + "]" : "없음";
-        let availStr = ALL_JOBS.filter(j => !game.bannedJobs.includes(j)).join(", ");
-        replier.reply("[밴픽] 밴 확정! " + otherPlayer + "님은 이제 직업을 선택하세요.\n" +
-            "밴된 직업: " + bannedStr + "\n" +
-            "선택 가능 직업: [" + availStr + "]");
+        let bannedStr = added.length > 0 ? "[" + added.join(", ") + "]" : "없음";
+        let availStr = ALL_JOBS.filter(j => !added.includes(j)).join(", ");
+        let errStr = errors.length > 0 ? "\n⚠ " + errors.join(" / ") : "";
+        replier.reply("[밴픽] 완료!" + errStr + "\n밴된 직업: " + bannedStr + "\n\n" +
+            otherPlayer + "님은 이제 직업을 선택하세요.\n선택 가능 직업: [" + availStr + "]");
         return;
     }
 
@@ -1078,7 +1070,7 @@ bot.addListener(Event.MESSAGE, function(event) {
 
         // 밴픽 단계 중 두 번째 플레이어가 시도한 경우
         if (game.banPhase && sender !== game.firstPicker) {
-            replier.reply("[밴픽] 아직 밴 단계입니다. " + game.firstPicker + "님이 1밴확정을 입력해야 합니다.");
+            replier.reply("[밴픽] 아직 밴 단계입니다. " + game.firstPicker + "님이 1밴 [직업명들]을 입력해야 합니다.\n예) 1밴 해커 기관사 사신\n(밴 없이 진행하려면: 1밴)");
             return;
         }
         // 두 번째 플레이어의 직업이 밴됐는지 확인
@@ -1095,14 +1087,15 @@ bot.addListener(Event.MESSAGE, function(event) {
             game.banPhase = true;
             replier.reply(sender + "님 -> [" + job + "] 선택 완료\n\n" +
                 "[밴픽] 상대방의 직업을 최대 6개까지 밴할 수 있습니다.\n" +
-                "밴 명령어: 1밴 [직업명]\n" +
-                "밴 완료:   1밴확정\n" +
-                "(밴 없이 진행하려면 바로 1밴확정을 입력하세요)\n\n" +
+                "명령어: 1밴 직업1 직업2 직업3 ...\n" +
+                "예시:   1밴 해커 기관사 사신\n" +
+                "(밴 없이 진행: 1밴)\n\n" +
                 "25개 직업: [" + ALL_JOBS.join(", ") + "]");
             return;
         }
 
         replier.reply(sender + "님 -> [" + job + "] 선택 완료");
+
 
         if (Object.keys(game.playerStates).length === 2) {
             game.phase = "playing";
