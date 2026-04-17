@@ -1042,7 +1042,6 @@ bot.addListener(Event.MESSAGE, function(event) {
         for (let banJob of banList) {
             if (added.length >= 6) { errors.push("최대 6개까지만 밴 가능 (이후 무시됨)"); break; }
             if (!ALL_JOBS.includes(banJob)) { errors.push("없는 직업: " + banJob); continue; }
-            if (banJob === myJob) { errors.push("자신의 직업은 밴 불가: " + banJob); continue; }
             if (added.includes(banJob)) { errors.push("중복: " + banJob); continue; }
             added.push(banJob);
         }

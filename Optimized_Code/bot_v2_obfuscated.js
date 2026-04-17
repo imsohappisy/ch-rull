@@ -230,7 +230,6 @@ return;}
 if((msg.startsWith(PREFIX+"밴 ")||msg===PREFIX+"밴")&&game&&game.phase==="job_selection"&&game.banPhase){if(sender!==game.firstPicker){replier.reply("[밴픽] 밴픽 권한은 먼저 직업을 선택한 분에게 있습니다.");return;}
 let banList=msg.slice(PREFIX.length+1).trim().split(/\s+/).filter(j=>j.length>0);let myJob=game.playerStates[sender].job;let errors=[];let added=[];for(let banJob of banList){if(added.length>=6){errors.push("최대 6개까지만 밴 가능 (이후 무시됨)");break;}
 if(!ALL_JOBS.includes(banJob)){errors.push("없는 직업: "+banJob);continue;}
-if(banJob===myJob){errors.push("자신의 직업은 밴 불가: "+banJob);continue;}
 if(added.includes(banJob)){errors.push("중복: "+banJob);continue;}
 added.push(banJob);}
 game.bannedJobs=added;game.banPhase=false;let otherPlayer=game.players.find(p=>p!==sender);let bannedStr=added.length>0?"["+added.join(", ")+"]":"없음";let availStr=ALL_JOBS.filter(j=>!added.includes(j)).join(", ");let errStr=errors.length>0?"\n⚠ "+errors.join(" / "):"";replier.reply("[밴픽] 완료!"+errStr+"\n밴된 직업: "+bannedStr+"\n\n"+
