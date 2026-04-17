@@ -224,12 +224,35 @@ replier.reply(buildStatusMsg(game));return;}
 if(msg.startsWith(PREFIX+"직업선택 ")){let jobName=msg.slice((PREFIX+"직업선택 ").length).trim();if(JOB_INFO[jobName]){replier.reply(JOB_INFO[jobName]);}else{replier.reply("[ 직업 정보 없음 ]\n\""+jobName+"\" 직업을 찾을 수 없습니다.\n사용 가능한 직업: 해커, 투자자, 환자, 수집가, 감시자, 뜀틀선수, 전우치, 기관사, 늑대인간, 시프터, 비밀요원, 67, 사과, 시인, 공룡, 마법사, 사신, 수학자, 생존자, 악당, 기자, 검객, 마하트마간디, 은하계전사, 수리사");}
 return;}
 if(msg===PREFIX+"채린"||msg===PREFIX+"ㅊㄹ"){if(!WORD_SET){replier.reply("단어 로드 필요 (.dev listload)");return;}
-if(!games[room]){games[room]={phase:"waiting",players:[],started:false,used:new Set(),history:[],turnCount:1,currentTurnIndex:-1,firstTurnIndex:-1,lastLetter:{s1:"",s2:""},isWaitingVote:false,voteType:null,targetWord:null,requester:null,lastPlayTime:Date.now(),kickVote:{target:null,startTime:null},playerStates:{}};game=games[room];}
+if(!games[room]){games[room]={phase:"waiting",players:[],started:false,used:new Set(),history:[],turnCount:1,currentTurnIndex:-1,firstTurnIndex:-1,lastLetter:{s1:"",s2:""},isWaitingVote:false,voteType:null,targetWord:null,requester:null,lastPlayTime:Date.now(),kickVote:{target:null,startTime:null},playerStates:{},bannedJobs:[],firstPicker:null,banPhase:false};game=games[room];}
 if(game.started||game.players.includes(sender)||game.players.length>=2)return;game.players.push(sender);replier.reply(sender+" 참가 ("+game.players.length+"/2)");if(game.players.length===2){game.phase="job_selection";game.started=true;replier.reply("게임 대기열 충족! 직업을 선택해주세요.\n입력 방법: "+PREFIX+"직업 해커 / "+PREFIX+"직업 투자자\n(현재 등록 직업: 25개 전체 등록 완료!)");}
 return;}
+if(msg.startsWith(PREFIX+"밴 ")&&game&&game.phase==="job_selection"&&game.banPhase){if(sender!==game.firstPicker){replier.reply("[밴픽] 밴픽 권한은 먼저 직업을 선택한 분에게 있습니다.");return;}
+let banJob=msg.slice((PREFIX+"밴 ").length).trim();if(!ALL_JOBS.includes(banJob)){replier.reply("존재하지 않는 직업입니다: "+banJob);return;}
+if(banJob===game.playerStates[sender].job){replier.reply("[밴픽] 자신의 직업은 밴할 수 없습니다.");return;}
+if(game.bannedJobs.includes(banJob)){replier.reply("[밴픽] 이미 밴된 직업입니다: "+banJob);return;}
+if(game.bannedJobs.length>=6){replier.reply("[밴픽] 최대 6개까지만 밴할 수 있습니다. 1밴확정으로 완료하세요.");return;}
+game.bannedJobs.push(banJob);let remaining=6-game.bannedJobs.length;replier.reply("[밴픽] "+banJob+" 밴 완료! ("+game.bannedJobs.length+"/6)\n"+
+"밴 목록: ["+game.bannedJobs.join(", ")+"]\n"+
+(remaining>0?"추가로 "+remaining+"개 더 밴하거나, 1밴확정으로 완료하세요.":"최대 밴 수 도달! 1밴확정으로 완료하세요."));if(game.bannedJobs.length>=6){game.banPhase=false;let otherPlayer=game.players.find(p=>p!==sender);replier.reply("[밴픽] 밴 완료! "+otherPlayer+"님은 이제 직업을 선택하세요.\n"+
+"밴된 직업: ["+game.bannedJobs.join(", ")+"]\n"+
+"선택 가능 직업: ["+ALL_JOBS.filter(j=>!game.bannedJobs.includes(j)).join(", ")+"]");}
+return;}
+if((msg===PREFIX+"밴확정"||msg===PREFIX+"밴완료")&&game&&game.phase==="job_selection"&&game.banPhase){if(sender!==game.firstPicker){replier.reply("[밴픽] 밴픽 권한은 먼저 직업을 선택한 분에게 있습니다.");return;}
+game.banPhase=false;let otherPlayer=game.players.find(p=>p!==sender);let bannedStr=game.bannedJobs.length>0?"["+game.bannedJobs.join(", ")+"]":"없음";let availStr=ALL_JOBS.filter(j=>!game.bannedJobs.includes(j)).join(", ");replier.reply("[밴픽] 밴 확정! "+otherPlayer+"님은 이제 직업을 선택하세요.\n"+
+"밴된 직업: "+bannedStr+"\n"+
+"선택 가능 직업: ["+availStr+"]");return;}
 if((msg.startsWith(PREFIX+"직업 ")||msg.startsWith(PREFIX+"ㅈㅇ "))&&game&&game.phase==="job_selection"){if(!game.players.includes(sender))return;let job=msg.replace(PREFIX+"직업 ","").replace(PREFIX+"ㅈㅇ ","").trim();if(job==="ㅎㅋ")job="해커";if(job==="ㅌㅈㅈ")job="투자자";if(!ALL_JOBS.includes(job)){replier.reply("존재하지 않거나 선택할 수 없는 직업입니다.");return;}
 if(game.playerStates[sender]){replier.reply("이미 직업을 선택하셨습니다.");return;}
-game.playerStates[sender]=initJobState(job);replier.reply(sender+"님 -> ["+job+"] 선택 완료");if(Object.keys(game.playerStates).length===2){game.phase="playing";game.lastPlayTime=Date.now();let p1=game.players[0];let p2=game.players[1];let p1_job=game.playerStates[p1].job;let p2_job=game.playerStates[p2].job;let startMsg=p1+" 님과 "+p2+" 님의 채린룰 끝말잇기가 시작되었습니다.\n\n"+
+if(game.banPhase&&sender!==game.firstPicker){replier.reply("[밴픽] 아직 밴 단계입니다. "+game.firstPicker+"님이 1밴확정을 입력해야 합니다.");return;}
+if(sender!==game.firstPicker&&game.bannedJobs.includes(job)){replier.reply("[밴픽] '"+job+"'은 밴된 직업입니다.\n밴 목록: ["+game.bannedJobs.join(", ")+"]\n선택 가능 직업: ["+ALL_JOBS.filter(j=>!game.bannedJobs.includes(j)).join(", ")+"]");return;}
+game.playerStates[sender]=initJobState(job);if(!game.firstPicker){game.firstPicker=sender;game.banPhase=true;replier.reply(sender+"님 -> ["+job+"] 선택 완료\n\n"+
+"[밴픽] 상대방의 직업을 최대 6개까지 밴할 수 있습니다.\n"+
+"밴 명령어: 1밴 [직업명]\n"+
+"밴 완료:   1밴확정\n"+
+"(밴 없이 진행하려면 바로 1밴확정을 입력하세요)\n\n"+
+"25개 직업: ["+ALL_JOBS.join(", ")+"]");return;}
+replier.reply(sender+"님 -> ["+job+"] 선택 완료");if(Object.keys(game.playerStates).length===2){game.phase="playing";game.lastPlayTime=Date.now();let p1=game.players[0];let p2=game.players[1];let p1_job=game.playerStates[p1].job;let p2_job=game.playerStates[p2].job;let startMsg=p1+" 님과 "+p2+" 님의 채린룰 끝말잇기가 시작되었습니다.\n\n"+
 "{ "+p1+" : "+p1_job+" }\n"+
 "{ "+p2+" : "+p2_job+" }\n"+
 FULL_VIEW+"\n\n"+
