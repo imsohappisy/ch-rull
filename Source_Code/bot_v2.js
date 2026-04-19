@@ -334,7 +334,7 @@ function buildStatusMsg(game) {
                    game.lastLetter.s2 + "(" + game.lastLetter.s1 + ")" : game.lastLetter.s2;
     if (game.history.length === 0) nextChar = "자유";
 
-    let historyStr = game.history.length > 0 ? (game.history.length > 25 ? "... " + game.history.slice(-25).join(" ") : game.history.join(" ")) : "없음";
+    let historyStr = game.history.length > 0 ? game.history.join(" ") : "없음";
     let currentPlayer = game.players[game.currentTurnIndex];
     let nextPlayer = game.players[(game.currentTurnIndex + 1) % 2];
     
