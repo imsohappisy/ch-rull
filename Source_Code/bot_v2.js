@@ -11,6 +11,8 @@ let ADMIN_PFX = ".dev";  // 관리자 명령어 접두사
 let games = {};
 let WORD_SET = null; 
 let KILL_SET = null;
+let WORD_INDEX = null;
+let WORD_RANK = null;
 let nextw = "";
 let isOn = true;
 
@@ -38,6 +40,15 @@ function loadHeavyWords() {
         br.close();
         
         WORD_SET = new Set(JSON.parse(sb.toString())); 
+        WORD_INDEX = new Map();
+        WORD_RANK = new Map();
+        let r_id = 0;
+        for (let w of WORD_SET) {
+            let lead = w[0];
+            if (!WORD_INDEX.has(lead)) WORD_INDEX.set(lead, []);
+            WORD_INDEX.get(lead).push(w);
+            WORD_RANK.set(w, r_id++);
+        }
         
         // Load legacy KILL_SET just in case
         const kfile = new java.io.File(KILL_FILE_PATH);
@@ -323,7 +334,7 @@ function buildStatusMsg(game) {
                    game.lastLetter.s2 + "(" + game.lastLetter.s1 + ")" : game.lastLetter.s2;
     if (game.history.length === 0) nextChar = "자유";
 
-    let historyStr = game.history.length > 0 ? game.history.join(" ") : "없음";
+    let historyStr = game.history.length > 0 ? (game.history.length > 25 ? "... " + game.history.slice(-25).join(" ") : game.history.join(" ")) : "없음";
     let currentPlayer = game.players[game.currentTurnIndex];
     let nextPlayer = game.players[(game.currentTurnIndex + 1) % 2];
     
@@ -965,6 +976,12 @@ bot.addListener(Event.MESSAGE, function(event) {
             let word = cmd.replace("addword ", "").trim();
             if (word.length < 2) return;
             WORD_SET.add(word);
+            if (WORD_INDEX) {
+                let lead = word[0];
+                if (!WORD_INDEX.has(lead)) WORD_INDEX.set(lead, []);
+                WORD_INDEX.get(lead).push(word);
+                WORD_RANK.set(word, WORD_RANK.size);
+            }
             replier.reply("단어 추가: " + word);
         } else if (cmd.startsWith("normalFPX ")) {
             PREFIX = cmd.replace("normalFPX ", "").trim();
@@ -1787,10 +1804,12 @@ bot.addListener(Event.MESSAGE, function(event) {
             let tgt_last = word[word.length - 1];
             let tgt_due = applyDuEum(tgt_last);
             let foundTargets = [];
-            if (WORD_SET && foundTargets.length < 3) {
-                for (let w of WORD_SET) {
+            if (WORD_INDEX && foundTargets.length < 3) {
+                let candidates = (WORD_INDEX.get(tgt_last) || []).concat(tgt_due !== tgt_last ? (WORD_INDEX.get(tgt_due) || []) : []);
+                candidates.sort((a, b) => WORD_RANK.get(a) - WORD_RANK.get(b));
+                for (let w of candidates) {
                     if (foundTargets.length >= 3) break;
-                    if ((w[0] === tgt_last || w[0] === tgt_due) && w.length <= 4 && !game.used.has(w) && !(game.bannedWords && game.bannedWords.has(w))) {
+                    if (w.length <= 4 && !game.used.has(w) && !(game.bannedWords && game.bannedWords.has(w))) {
                         if (isYudo(w) || isRoot(w)) foundTargets.push(w);
                     }
                 }
