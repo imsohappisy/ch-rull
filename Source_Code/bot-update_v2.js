@@ -4206,5 +4206,67 @@ function response(room, msg, sender, isGroupChat, replier, imageDB, packageName,
 }
 
 function onStartCompile() {
+    let backupPath = JSON_BASE_PATH + "/games_backup.json";
+    let keys = Object.keys(games);
+    if (keys.length > 0) {
+        let serialized = {};
+        for (let i = 0; i < keys.length; i++) {
+            let room = keys[i];
+            let state = games[room];
+            if (state && state.phase !== "waiting") {
+                let copy = Object.assign({}, state);
+                if (copy.used) copy.usedList = Array.from(copy.used);
+                if (copy.customWords) copy.customWordsList = Array.from(copy.customWords);
+                if (copy.bannedWords) copy.bannedWordsList = Array.from(copy.bannedWords);
+                delete copy.used;
+                delete copy.customWords;
+                delete copy.bannedWords;
+                serialized[room] = copy;
+
+                if (typeof Api !== "undefined" && Api.replyRoom) {
+                    Api.replyRoom(room, "[시스템]: 봇 업데이트(스크립트 컴파일) 요청을 감지했습니다. 기존 게임의 진행 상태를 안전하게 저장(백업)합니다...");
+                }
+            }
+        }
+        if (Object.keys(serialized).length > 0) {
+            FileStream.write(backupPath, JSON.stringify(serialized));
+        }
+    }
     safeGc();
 }
+
+function restoreSavedGames() {
+    let backupPath = JSON_BASE_PATH + "/games_backup.json";
+    try {
+        let savedStr = FileStream.read(backupPath);
+        if (savedStr) {
+            let saved = JSON.parse(savedStr);
+            if (saved && Object.keys(saved).length > 0) {
+                let rooms = Object.keys(saved);
+                for (let i = 0; i < rooms.length; i++) {
+                    let room = rooms[i];
+                    let state = saved[room];
+                    if (state.usedList) state.used = new Set(state.usedList);
+                    else state.used = new Set();
+                    if (state.customWordsList) state.customWords = new Set(state.customWordsList);
+                    if (state.bannedWordsList) state.bannedWords = new Set(state.bannedWordsList);
+                    delete state.usedList;
+                    delete state.customWordsList;
+                    delete state.bannedWordsList;
+                    games[room] = state;
+
+                    if (typeof Api !== "undefined" && Api.replyRoom) {
+                        Api.replyRoom(room, "[시스템]: 봇 업데이트가 완료되었습니다. 이전의 게임 데이터를 성공적으로 불러왔습니다.");
+                    }
+                }
+            }
+        }
+    } catch (e) {
+        // 복구 실패 시 무시
+    }
+    FileStream.remove(backupPath);
+}
+
+try {
+    restoreSavedGames();
+} catch (e) { }
