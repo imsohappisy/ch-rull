@@ -1804,12 +1804,19 @@ bot.addListener(Event.MESSAGE, function(event) {
             let tgt_last = word[word.length - 1];
             let tgt_due = applyDuEum(tgt_last);
             let foundTargets = [];
-            if (WORD_INDEX && foundTargets.length < 3) {
+            if (WORD_INDEX && WORD_RANK && foundTargets.length < 3) {
                 let candidates = (WORD_INDEX.get(tgt_last) || []).concat(tgt_due !== tgt_last ? (WORD_INDEX.get(tgt_due) || []) : []);
                 candidates.sort((a, b) => WORD_RANK.get(a) - WORD_RANK.get(b));
                 for (let w of candidates) {
                     if (foundTargets.length >= 3) break;
                     if (w.length <= 4 && !game.used.has(w) && !(game.bannedWords && game.bannedWords.has(w))) {
+                        if (isYudo(w) || isRoot(w)) foundTargets.push(w);
+                    }
+                }
+            } else if (WORD_SET && foundTargets.length < 3) {
+                for (let w of WORD_SET) {
+                    if (foundTargets.length >= 3) break;
+                    if ((w[0] === tgt_last || w[0] === tgt_due) && w.length <= 4 && !game.used.has(w) && !(game.bannedWords && game.bannedWords.has(w))) {
                         if (isYudo(w) || isRoot(w)) foundTargets.push(w);
                     }
                 }
